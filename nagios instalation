@@ -1,0 +1,205 @@
+steps to install nagios 
+
+sudo yum -y install wget
+wget https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.3.4.tar.gz
+   20  ll
+   21  tar xvf nagios-4.3.4.tar.gz
+   22  ll
+   23  cd nagios-4.3.4
+   24  ll
+   25  clear
+   26  sudo yum –y install wget httpd php gcc glib glibc-common gd gd-devel make net-snmp unzip openssl-devel
+   27  sudo yum install -y wget httpd php gcc glib glibc-common gd gd-devel make net-snmp unzip openssl-devel
+   28  cd ..
+   29  sudo useradd nagios
+   30  sudo groupadd nagcmd
+   31  sudo usermod -aG nagcmd nagios
+   32  sudo usermod -aG nagcmd apache
+   33  cd nagios-4.3.4
+   34  ls
+   35  ./configure
+   36  make all
+   37  sudo make install
+   38  sudo make install-init
+   39  sudo make install-commandmode
+   40  sudo make install-config
+   41  sudo make install-commandmode
+   42  sudo make install-webconf
+   43  ls
+   44  ls contrib/eventhandlers/
+   45  sudo cp -R contrib/eventhandlers/ /usr/local/nagios/libexec
+   46  sudo chown -R nagios:nagios /usr/local/nagios/libexec/eventhandlers/
+   47  sudo htpasswd -c /usr/local/nagios/etc/htpasswd.users nagiosadmin
+   48  sudo /usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg
+   49  sudo /etc/init.d/nagios start
+   50  netstat -ntpl
+   51  sudo systemctl restart httpd
+
+
+steps to install nagios plugins
+
+   53  cd ..  (come out to home directory to install plugins)
+   54  wget https://nagios-plugins.org/download/nagios-plugins-2.2.1.tar.gz
+   55  ll
+   56  tar xf nagios-plugins-2.2.1.tar.gz
+   57  ll
+   58  cd nagios-plugins-2.2.1
+   59  ./configure
+   60  make
+   61  sudo make install
+   62  sudo /etc/init.d/nagios restart
+check the web page now HOST is UP and services are being loaded 
+
+steps to install NRPE (Nagios Remote Processes 
+
+ 64  wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-3.2.1/nrpe-3.2.1.tar.gz
+   65  ll
+   66  rm _R nrpe-3.2.1.tar.gz
+   67  ls
+   68  cd ..
+   69  ll
+   70  wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-3.2.1/nrpe-3.2.1.tar.gz
+   71  cd nrpe-3.2.1.tar.gz
+   72  tar xvf nrpe-3.2.1.tar.gz
+   73  ll
+   74  cd nrpe-3.2.1
+   75  ll
+   76  ./configure
+   77  sudo make all
+   78  sudo make install
+   79  ls -l /usr/local/nagios/libexec/check_nrpe
+   80  sudo /etc/init.d/nagios restart
+   81  sudo vim /var/www/html/index.html
+   82  sudo systemctl restart httpd
+
+
+STEPS TO CREATE A CLIENT MACHINE
+
+LAUNCH A MCHINE BY NAME NODE1
+
+only install plugins in this machine
+
+  1  sudo useradd nagios
+    2  sudo yum install -y wget php gcc glib glibc-common gd gd-devel make net-snmp unzip openssl-devel xinetd
+    3  wget https://nagios-plugins.org/download/nagios-plugins-2.2.1.tar.gz
+    4  ll
+    5  tar xf nagios-plugins-2.2.1.tar.gz
+    6  ll
+    7  cd nagios-plugins-2.2.1
+    8  ll
+    9  ls
+   10  ./configure
+   11  make all
+   12  sudo make install
+   13  cd
+   14  wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-3.2.1/nrpe-3.2.1.tar.gz
+   15  ll
+   16  tar xf nrpe-3.2.1.tar.gz
+   17  ll
+   18  cd nrpe-3.2.1
+   19  ll
+   20  ./configure
+   21  make all
+   22  sudo make install
+   23  cd
+28  sudo mkdir /usr/local/nagios/etc
+   29  cd nrpe-3.2.1
+   30  ls
+   31  ls sample-config/
+   32  sudo cp sample-config/nrpe.cfg /usr/local/nagios/etc/
+   33  cd sample-config/
+   34  ls
+  Now configure Xinetd (Extended internet daemon) 
+35  sudo vim nrpe.xinetd
+---------------------------------------------------------------
+service nrpe
+{
+        flag            = REUSE
+        port            = 5666
+        socket_type     = stream
+        wait            = no
+        user            = nagios
+        group           = nagios
+        server          = /usr/local/nagios/bin/nrpe
+        server_args     = -c /usr/local/nagios/etc/nrpe.cfg --inetd
+        log_on_failure  += USERID
+        disable         = no
+       only_from        = 127.0.0.1 <IP add of core machine>
+}
+-------------------------------------------------------------------------
+   39  sudo cp nrpe.xinetd /etc/xinetd.d/nrpe
+   40  sudo vi /etc/services (manually uppdate Port no)
+update port no 5666 and type 
+nrpe	5666/tcp	# NRPE Services
+
+   41  sudo chown -R nagios:nagios /usr/local/nagios/
+   42  sudo service xinetd start
+   43  netstat -ntpl
+sudo
+ go to nagios-core machine 
+
+hand-shake with node1
+under home directory
+/usr/local/nagios/libexec/check_nrpe -H <Ipadd of node machine>
+
+
+NOW WE NEED TO ADD CLIENTS TO SERVER NOW CONFIGURE DETAILS ON SERVER
+
+now we need to create two under
+sudo vi /usr/local/nagios/etc/hosts.cfg (TO ADD CLIENTS)
+----------------------------------------------------
+define host{
+use generic-host ; Inherit default values from a template
+host_name node1 ; the name we're giving to this servers
+alias CentOS 7 ; A longer name for the server
+address 35.245.232.238 ; IP adress of Remote Linux host
+}
+
+we can add any other nodes available
+-----------------------------------------------------
+
+
+sudo vi /usr/local/nagios/etc/services.cfg (TO ADD SERVICES)
+-----------------------------------------------------
+define service{
+use generic-service
+host_name node1
+service_description CPU Load
+check_command check_nrpe!check_load
+}
+----------------------------
+we can add more services 
+------------------------------------
+
+we need to enable more parameters
+
+sudo vi /usr/local/nagios/etc/objects/command.cfg
+
+at page end paste this defination for defining check_nrpe command
+-------------------------------
+define command{
+command_name check_nrpe
+command_line $USER1$/check_nrpe -H $HOSTADDRESS$ -c $ARG1$
+}
+------------------------------------------
+
+   84  sudo /etc/init.d/nagios restart
+   85  sudo setenforce 0
+   86  sudo /etc/init.d/nagios restart
+   87  sudo /usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg
+   88  sudo vi /usr/local/nagios/etc/services.cfg
+   89  sudo vi /usr/local/nagios/etc/hosts.cfg  add (max_check_attempts 5)
+   90  sudo /usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg
+   91  sudo vi /usr/local/nagios/etc/services.cfg
+   92  sudo vi /usr/local/nagios/etc/hosts.cfg
+   93  sudo /usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg
+   94  sudo /etc/init.d/nagios restart
+ NOW NODE1 IS CONNETCED TO SERVER, HERE AFTER CAN MONITOR
+
+
+
+
+
+
+
+
